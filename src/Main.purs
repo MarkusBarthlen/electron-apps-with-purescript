@@ -18,11 +18,15 @@ import Data.Nullable (toMaybe)
 import Node.FS (FS)
 import Node.FS.Sync (readdir)
 import Partial.Unsafe (unsafePartial)
-import React.DOM (text, li', ul', input)
+import React.DOM (text, li', ul', input, div)
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad.Trans (lift)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (log, CONSOLE)
+import Data.Lens (over)
+import Data.Foldable (fold)
+
+
 
 type State = {dir :: String, names :: Array String}
 
@@ -65,16 +69,21 @@ performActionParent (UpdateFiles s)           _ _ = do
    void $ T.cotransform $ _ { names = filenames }
 performActionParent _                     _ _ = pure unit
 
-renderParent :: T.Render State _ Action
-renderParent performActionParent props state _ =
-  let component = T.createClass dirListingComponent state
-      child = (R.createFactory component (state))
-  in
-  [ child
-  ]
+-- renderParent :: forall props e. T.Render State _ Action
+-- renderParent dispatch props state _ = container $ fold
+parent :: forall eff. T.Spec (fs :: FS, console :: CONSOLE | eff) State _ Action
+parent = container $ fold
+  [  dirListingComponent , parentActions
+    ]
+  where
+  container :: forall state action. T.Spec (fs :: FS, console :: CONSOLE | eff) state _ action -> T.Spec (fs :: FS, console :: CONSOLE | eff) state _ action
+  container = over T._render \renderX d p s c ->
+      [ div [ RP.className "container" ] (renderX d p s c) ]
+  parentActions :: T.Spec (fs :: FS, console :: CONSOLE | eff) State _ Action
+  parentActions = T.simpleSpec performActionParent T.defaultRender
 
-parent :: T.Spec _ State _ Action
-parent = T.simpleSpec performActionParent renderParent
+-- parent :: T.Spec _ State _ Action
+-- parent = T.simpleSpec performActionParent renderParent
 
 main :: Eff (fs :: FS, dom :: DOM) Unit
 main = void do
