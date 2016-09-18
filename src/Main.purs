@@ -17,23 +17,38 @@ import Data.Nullable (toMaybe)
 import Node.FS (FS)
 import Node.FS.Sync (readdir)
 import Partial.Unsafe (unsafePartial)
-import React.DOM (text, li', ul')
+import React.DOM (text, li', ul', input)
+import React.DOM.Props as RP
+import Unsafe.Coerce (unsafeCoerce)
 
-type FileNames = {names :: Array String}
+type State = {dir :: String, names :: Array String}
 
-dirListingComponent
-  :: forall eff. T.Spec eff Unit FileNames Unit
-dirListingComponent =
-  T.simpleSpec T.defaultPerformAction render
-  where render _ props _ _ =
-          [ ul'
-            (map (\file -> li' [text file]) props.names)
-          ]
+data Action
+  = SetEditText String
+
+-- dirListingComponent :: forall eff. T.Spec eff Unit State Unit
+-- dirListingComponent :: T.Spec _ State _ Action
+
+render :: T.Render State _ _
+render perform props state _ =
+  [
+    input [RP.placeholder "directory",
+             RP.onChange \e -> perform (SetEditText (unsafeCoerce e).target.value)   ] [],
+    ul' (map (\file -> li' [text file]) props.names)
+  ]
+
+performAction :: T.PerformAction _ State _ Action
+performAction (SetEditText s)           _ _ = void $ T.cotransform $ _ { dir = s }
+
+dirListingComponent :: T.Spec _ State _ Action
+dirListingComponent = T.simpleSpec performAction render
 
 main :: Eff (fs :: FS, dom :: DOM) Unit
 main = void do
-  fileNames <- either (const []) id <$> try (readdir ".")
-  let component = T.createClass dirListingComponent unit
+  let dir = "/home/markus"
+  fileNames <- either (const []) id <$> try (readdir dir)
+  let state = {dir: dir, names: fileNames}
+  let component = T.createClass dirListingComponent state
   document <- DOM.window >>= DOM.document
   container <-
     unsafePartial
@@ -41,5 +56,5 @@ main = void do
     <$> DOM.querySelector "body"
     (DOM.htmlDocumentToParentNode document))
   RDOM.render
-    (R.createFactory component ({names: fileNames}))
+    (R.createFactory component (state))
     container
