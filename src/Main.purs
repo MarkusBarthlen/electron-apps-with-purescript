@@ -56,6 +56,7 @@ performAction (SetEditText s)           _ _ = void do
 performAction (UpdateFiles s)           _ _ = do
    filenames <- lift ( liftEff (either (const []) id <$> try (readdir s)))
    lift (liftEff $ log s)
+   lift (liftEff $ log (show filenames))
    void $ T.cotransform $ _ { names = filenames }
 
 
