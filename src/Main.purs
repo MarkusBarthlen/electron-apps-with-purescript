@@ -47,7 +47,7 @@ render perform props state _ =
                RP.onChange \e -> perform (SetEditText (unsafeCoerce e).target.value),
                RP.onKeyUp \e -> handleKeyPress (unsafeCoerce e).keyCode (unsafeCoerce e).target.value
                ] [],
-      ul' (map (\file -> li' [text file, input [RP.value "test", RP.onClick (\_ -> performAction Update) ] []]) props.names)
+      ul' (map (\file -> li' [text file]) props.names)
     ]
 
 
