@@ -21,6 +21,7 @@ import Node.FS.Sync (readdir)
 import Partial.Unsafe (unsafePartial)
 import React.DOM (text, li', ul', input)
 import Unsafe.Coerce (unsafeCoerce)
+import Control.Monad.Trans (lift)
 
 type State = {dir :: String, names :: Array String}
 
@@ -49,8 +50,8 @@ performAction :: T.PerformAction _ State _ Action
 performAction (SetEditText s)           _ _ = void do
   T.cotransform $ _ { dir = s }
 performAction (UpdateFiles s)           _ _ = void do
-   filenames <- either (const []) id <$> try (readdir s)
-   T.cotransform $ _ { files = filenames }
+   filenames <- (either (const []) id <$> try (readdir s))
+   T.cotransform $ _ { names = filenames }
   -- T.cotransform $ _ { dir = ""}
 
 
