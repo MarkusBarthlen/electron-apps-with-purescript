@@ -2,12 +2,15 @@ module Main where
 
 import Prelude
 import React as R
+import React.DOM.Props as RP
 import ReactDOM as RDOM
 import Thermite as T
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (try)
 import DOM (DOM)
 import DOM.HTML (window) as DOM
+import DOM.HTML.HTMLAnchorElement (download)
+import DOM.HTML.HTMLInputElement (files)
 import DOM.HTML.Types (htmlDocumentToParentNode) as DOM
 import DOM.HTML.Window (document) as DOM
 import DOM.Node.ParentNode (querySelector) as DOM
@@ -18,27 +21,43 @@ import Node.FS (FS)
 import Node.FS.Sync (readdir)
 import Partial.Unsafe (unsafePartial)
 import React.DOM (text, li', ul', input)
-import React.DOM.Props as RP
 import Unsafe.Coerce (unsafeCoerce)
 
 type State = {dir :: String, names :: Array String}
 
 data Action
-  = SetEditText String
+  = SetEditText String |
+  UpdateFiles String
 
 -- dirListingComponent :: forall eff. T.Spec eff Unit State Unit
 -- dirListingComponent :: T.Spec _ State _ Action
 
 render :: T.Render State _ _
 render perform props state _ =
-  [
-    input [RP.placeholder "directory",
-             RP.onChange \e -> perform (SetEditText (unsafeCoerce e).target.value)   ] [],
-    ul' (map (\file -> li' [text file]) props.names)
-  ]
+  let handleKeyPress :: Int -> String -> _
+      handleKeyPress 13 text = perform $ UpdateFiles text
+      handleKeyPress 27 _    = perform $ SetEditText ""
+      handleKeyPress _  _    = pure unit
+  in
+    [
+      input [RP.placeholder "directory",
+               RP.value state.dir, 
+               RP.onChange \e -> perform (SetEditText (unsafeCoerce e).target.value),
+               RP.onKeyUp \e -> handleKeyPress (unsafeCoerce e).keyCode (unsafeCoerce e).target.value
+               ] [],
+      ul' (map (\file -> li' [text file]) props.names)
+    ]
+
 
 performAction :: T.PerformAction _ State _ Action
-performAction (SetEditText s)           _ _ = void $ T.cotransform $ _ { dir = s }
+performAction (SetEditText s)           _ _ = void do
+  -- fileNames <- either (const []) id <$> try (readdir s)
+  T.cotransform $ _ { dir = s }
+performAction (UpdateFiles s)           _ _ = void do
+  -- f <- either (const []) id <$> try (readdir s)
+  -- T.cotransform $ _ { files = f }
+  T.cotransform $ _ { dir = ""}
+
 
 dirListingComponent :: T.Spec _ State _ Action
 dirListingComponent = T.simpleSpec performAction render
