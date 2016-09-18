@@ -22,6 +22,10 @@ import Partial.Unsafe (unsafePartial)
 import React.DOM (text, li', ul', input)
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad.Trans (lift)
+import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Aff (liftEff')
+import Control.Monad.Aff.Class (liftAff)
+import Control.Monad.Eff.Console (log, CONSOLE)
 
 type State = {dir :: String, names :: Array String}
 
@@ -46,13 +50,13 @@ render perform props state _ =
     ]
 
 
-performAction :: T.PerformAction _ State _ Action
+performAction :: forall e. T.PerformAction (fs :: FS, console :: CONSOLE | e) State _ Action
 performAction (SetEditText s)           _ _ = void do
   T.cotransform $ _ { dir = s }
-performAction (UpdateFiles s)           _ _ = void do
-   filenames <- (either (const []) id <$> try (readdir s))
-   T.cotransform $ _ { names = filenames }
-  -- T.cotransform $ _ { dir = ""}
+performAction (UpdateFiles s)           _ _ = do
+   filenames <- lift ( liftEff (either (const []) id <$> try (readdir s)))
+   lift (liftEff $ log s)
+   void $ T.cotransform $ _ { names = filenames }
 
 
 dirListingComponent :: T.Spec _ State _ Action
