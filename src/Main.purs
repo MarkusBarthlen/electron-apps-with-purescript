@@ -9,7 +9,6 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (try)
 import DOM (DOM)
 import DOM.HTML (window) as DOM
-import DOM.HTML.HTMLAnchorElement (download)
 import DOM.HTML.HTMLInputElement (files)
 import DOM.HTML.Types (htmlDocumentToParentNode) as DOM
 import DOM.HTML.Window (document) as DOM
@@ -29,10 +28,7 @@ data Action
   = SetEditText String |
   UpdateFiles String
 
--- dirListingComponent :: forall eff. T.Spec eff Unit State Unit
--- dirListingComponent :: T.Spec _ State _ Action
-
-render :: T.Render State _ _
+render :: T.Render State _ Action
 render perform props state _ =
   let handleKeyPress :: Int -> String -> _
       handleKeyPress 13 text = perform $ UpdateFiles text
@@ -41,7 +37,7 @@ render perform props state _ =
   in
     [
       input [RP.placeholder "directory",
-               RP.value state.dir, 
+               RP.value state.dir,
                RP.onChange \e -> perform (SetEditText (unsafeCoerce e).target.value),
                RP.onKeyUp \e -> handleKeyPress (unsafeCoerce e).keyCode (unsafeCoerce e).target.value
                ] [],
@@ -51,12 +47,11 @@ render perform props state _ =
 
 performAction :: T.PerformAction _ State _ Action
 performAction (SetEditText s)           _ _ = void do
-  -- fileNames <- either (const []) id <$> try (readdir s)
   T.cotransform $ _ { dir = s }
 performAction (UpdateFiles s)           _ _ = void do
-  -- f <- either (const []) id <$> try (readdir s)
-  -- T.cotransform $ _ { files = f }
-  T.cotransform $ _ { dir = ""}
+   filenames <- either (const []) id <$> try (readdir s)
+   T.cotransform $ _ { files = filenames }
+  -- T.cotransform $ _ { dir = ""}
 
 
 dirListingComponent :: T.Spec _ State _ Action
