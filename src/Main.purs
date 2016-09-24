@@ -43,6 +43,10 @@ render perform props state _ =
       handleKeyPress _  _    = pure unit
   in
     [
+
+          text (show (toNumber props.a))
+         ,
+
       button [ RP.className "btn btn-success"
                    , RP.onClick \_ -> perform IncrementB
                    ]
@@ -55,8 +59,7 @@ render perform props state _ =
 
 
 performAction :: forall e. T.PerformAction (fs :: FS, console :: CONSOLE | e) State _ Action
-performAction IncrementA                _ _ = void do
-  T.cotransform $ _ { a = 20 }
+performAction IncrementA                _ _ = void $ T.cotransform $ \{a = x, b = y , dir = z, names = w} -> {a = x +1, b = y , dir = z, names = w}
 performAction IncrementB                _ _ = void do
   T.cotransform $ _ { b = 20 }
 performAction (SetEditText s)           _ _ = void do
