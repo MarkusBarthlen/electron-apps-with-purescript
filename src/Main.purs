@@ -25,14 +25,15 @@ import Data.Nullable (toMaybe)
 import Node.FS (FS)
 import Node.FS.Sync (readdir)
 import Partial.Unsafe (unsafePartial)
-import React.DOM (text, li', ul', input)
+import React.DOM (text, li', ul', input, button)
 import Unsafe.Coerce (unsafeCoerce)
+import Data.Int (toNumber)
 
-type State = {dir :: String, names :: Array String}
+type State = {a :: Int, b :: Int, dir :: String, names :: Array String}
 
 data Action
   = SetEditText String |
-  UpdateFiles String | Update
+  UpdateFiles String | Update | IncrementA | IncrementB
 
 render :: T.Render State _ Action
 render perform props state _ =
@@ -42,21 +43,28 @@ render perform props state _ =
       handleKeyPress _  _    = pure unit
   in
     [
-      input [RP.placeholder "directory",
-               RP.value state.dir,
-               RP.onChange \e -> perform (SetEditText (unsafeCoerce e).target.value),
-               RP.onKeyUp \e -> handleKeyPress (unsafeCoerce e).keyCode (unsafeCoerce e).target.value
-               ] [],
-      ul' (map (\file -> li' [text file]) props.names)
+      button [ RP.className "btn btn-success"
+                   , RP.onClick \_ -> perform IncrementB
+                   ]
+                   [ text (show (toNumber props.b))]
+        , button [ RP.className "btn btn-danger"
+                   , RP.onClick \_ -> perform IncrementA
+                   ]
+                   [ text (show (toNumber props.a)) ]
     ]
 
 
 performAction :: forall e. T.PerformAction (fs :: FS, console :: CONSOLE | e) State _ Action
+performAction IncrementA                _ _ = void do
+  T.cotransform $ _ { a = 20 }
+performAction IncrementB                _ _ = void do
+  T.cotransform $ _ { b = 20 }
 performAction (SetEditText s)           _ _ = void do
   T.cotransform $ _ { dir = s }
 performAction (Update)                  _ _ = void do
   T.cotransform $ _ { dir = "" }
-performAction (UpdateFiles s)           _ _ = do
+performAction (UpdateFiles s)           _ p = do
+   lift (liftEff $ log (show p.names))
    filenames <- lift ( liftEff (either (const []) id <$> try (readdir s)))
    lift (liftEff $ log s)
    lift (liftEff $ log (show filenames))
@@ -70,13 +78,13 @@ main :: Eff (fs :: FS, dom :: DOM) Unit
 main = void do
   let dir = "/home/markus"
   fileNames <- either (const []) id <$> try (readdir dir)
-  let state = {dir: dir, names: fileNames}
+  let state = {dir: dir, names: fileNames, a: 0 , b :0}
   let component = T.createClass dirListingComponent state
   document <- DOM.window >>= DOM.document
   container <-
     unsafePartial
     (fromJust <<< toMaybe
-    <$> DOM.querySelector "body"
+    <$> DOM.querySelector "#container"
     (DOM.htmlDocumentToParentNode document))
   RDOM.render
     (R.createFactory component (state))
