@@ -17,28 +17,49 @@ import Data.Int (toNumber)
 import Control.Monad.Trans (lift)
 import Control.Monad.Eff.Class (liftEff)
 import Data.Either (either)
+
+import Node.FS (FS)
 import Node.FS.Sync (readdir)
 
+type EffModel state action eff =
+  { state :: state
+  , effects :: Array (Eff eff action)
+  }
 
 data Action
   =
-  UpdateFiles FormEvent
+  UpdateDir FormEvent | UpdateFiles (Array String)
 
 type State = {dir :: String, names :: Array String}
 
-update :: Action -> State -> State
-update (UpdateFiles ev) state = -- do
-   -- let dirX = ev.target.value
-   state {dir = ev.target.value}
-   -- filenames <- lift ( liftEff (either (const []) id <$> try (readdir dirX)))
-   -- state { names = filenames , dir = dirX}
+noEffects :: forall state action eff. state -> EffModel state action eff
+noEffects state = { state: state, effects: [] }
 
+update :: Action -> State -> EffModel State Action (fs :: FS)
+update (UpdateDir ev) state =
+  { state: state { dir = ev.target.value }
+  , effects: [ do
+      filenames <- (either (const []) id <$> try (readdir ev.target.value))
+      pure $ UpdateFiles filenames
+    ]
+  }
+update (UpdateFiles files) state =
+  noEffects $ state
+
+
+{--
+update (UpdateFiles ev) state =  do
+   let dirX = "/" -- ev.target.value
+   -- state {dir = ev.target.value}
+   filenames <- lift ( liftEff (either (const []) id <$> try (readdir dirX)))
+   pure state { names = filenames , dir = dirX}
+--}
 
 view state = form
   [ name "signin"
 
   ]
-  [ input [ type_ "text", value state.dir, onChange UpdateFiles ] []
+  [ input [ type_ "text", value state.dir, onChange UpdateDir ] []
   , button [ type_ "submit" ] [ text "Sign In" ]
   ]
 
@@ -55,12 +76,12 @@ view state = div
     ]
 --}
 
-main :: forall e. Eff (err :: EXCEPTION, channel :: CHANNEL | e) Unit
+main :: forall e. Eff (fs :: FS, err :: EXCEPTION, channel :: CHANNEL | e) Unit
 main = do
   let init = { dir : "/home/markus" , names :  [] }
   app <- start
     { initialState: init
-    , update: fromSimple update
+    , update: update
     , view: view
     , inputs: []
     }
