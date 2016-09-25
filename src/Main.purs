@@ -29,13 +29,11 @@ import React.DOM (text, li', ul', input, button)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Tuple
 import Data.Lens
-
+import Data.Traversable
 
 type InputState = String
 
 data InputAction = SetEditText String
-
-type State = Tuple InputState FilesState
 
 renderInput :: T.Render InputState _ InputAction
 renderInput perform props state _ =
@@ -60,39 +58,41 @@ inputSpec = T.simpleSpec performInputAction renderInput
 
 type FilesState = Array String
 
-data FilesAction = Update
+data FilesAction = Update String
 
-renderFiles :: T.Render FilesState _ FilesAction
-renderFiles perform props state _ =
-      [
-      button [RP.onClick \_ -> perform Update
-               ] [],
-      ul' (map (\file -> li' [text file]) props.names)
-    ]
-
-performFilesAction :: forall e. T.PerformAction (fs :: FS, console :: CONSOLE | e) FilesState _ FilesAction
-performFilesAction (Update)           _ s = do
-   filenames <- lift ( liftEff (either (const []) id <$> try (readdir s.dir)))
-   lift (liftEff $ log s)
-   lift (liftEff $ log (show filenames))
-   void $ T.cotransform $ _ { names = filenames }
-
-filesSpec :: T.Spec _ FilesState _ FilesAction
-filesSpec = T.simpleSpec performInputAction renderInput
-
-
+type State = Tuple InputState FilesState
 
 type Action = Either InputAction FilesAction
 
-dirListingComponent :: T.Spec _ State _ Action
-dirListingComponent = T.focus _1 _Left inputSpec <> T.focus _2 _Right filesSpec
+renderFiles :: T.Render State _ FilesAction
+renderFiles perform props state _ =
+      [
+      button [RP.onClick \_ -> perform (Update (fst state))
+               ] [text "Update"],
+      ul' (map (\file -> li' [text file]) (snd state))
+    ]
+
+performFilesAction :: forall e. T.PerformAction (fs :: FS| e) State _ FilesAction
+performFilesAction (Update dir)           a b = void do
+  T.cotransform \(Tuple x y) -> (Tuple x y)
+--   filenames <- lift ( liftEff (either (const []) id <$> try (readdir dir)))
+--   void $ T.cotransform _ (Tuple dir filenames)
+
+
+filesSpec :: T.Spec _ State _ FilesAction
+filesSpec = T.simpleSpec performFilesAction renderFiles
+
+
+
+komponent :: T.Spec _ State _ Action
+komponent = T.focus _1 _Left inputSpec <> T.focus id _Right filesSpec
 
 main :: Eff (fs :: FS, dom :: DOM) Unit
 main = void do
   let dir = "/home/markus"
   fileNames <- either (const []) id <$> try (readdir dir)
-  let state = {dir: dir, names: fileNames}
-  let component = T.createClass dirListingComponent state
+  let state = (Tuple  dir fileNames)
+  let component = T.createClass komponent state
   document <- DOM.window >>= DOM.document
   container <-
     unsafePartial
