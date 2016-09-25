@@ -1,40 +1,5 @@
 module Main where
 
-
-
-{--
-import React as R
-import React.DOM.Props as RP
-import ReactDOM as RDOM
-import Control.Monad.Aff (liftEff')
-import Control.Monad.Aff.Class (liftAff)
-
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (log, CONSOLE)
-
-
-
-import Control.Monad.Trans (lift)
-import DOM (DOM)
-import DOM.HTML (window) as DOM
-import DOM.HTML.HTMLAnchorElement (download)
-import DOM.HTML.HTMLInputElement (files)
-import DOM.HTML.Types (htmlDocumentToParentNode) as DOM
-import DOM.HTML.Window (document) as DOM
-import DOM.Node.ParentNode (querySelector) as DOM
-import Data.Either (either)
-import Data.Maybe (fromJust)
-import Data.Nullable (toMaybe)
-import Node.FS (FS)
-import Node.FS.Sync (readdir)
-import Partial.Unsafe (unsafePartial)
--- import React.DOM
-import Unsafe.Coerce (unsafeCoerce)
-import Data.Int (toNumber)
-
-
---}
-
 import Prelude
 
 import Control.Monad.Eff.Exception (try, EXCEPTION)
@@ -43,35 +8,56 @@ import Control.Monad.Eff (Eff)
 import Signal.Channel (CHANNEL)
 
 import Pux (renderToDOM, fromSimple, start)
-import Pux.Html (Html, text, button, span, div)
-import Pux.Html.Events (onClick)
+import Pux.Html (Html, text, button, span, div, input, ul, li, form)
+import Pux.Html.Events (onClick, onChange, onKeyUp, onSubmit, FormEvent)
+import Pux.Html.Attributes (type_, value, name)
 
 import Data.Int (toNumber)
 
+import Control.Monad.Trans (lift)
+import Control.Monad.Eff.Class (liftEff)
+import Data.Either (either)
+import Node.FS.Sync (readdir)
 
-data Action = IncrementA | IncrementB
 
-type State = {a :: Int, b :: Int}
+data Action
+  =
+  UpdateFiles FormEvent
 
+type State = {dir :: String, names :: Array String}
 
 update :: Action -> State -> State
---update IncrementA state = {a = 20, b = 20}
-update IncrementA state = state { a = state.a + 1}
-update IncrementB state = state { b = state.b + 1}
+update (UpdateFiles ev) state = -- do
+   -- let dirX = ev.target.value
+   state {dir = ev.target.value}
+   -- filenames <- lift ( liftEff (either (const []) id <$> try (readdir dirX)))
+   -- state { names = filenames , dir = dirX}
 
+
+view state = form
+  [ name "signin"
+
+  ]
+  [ input [ type_ "text", value state.dir, onChange UpdateFiles ] []
+  , button [ type_ "submit" ] [ text "Sign In" ]
+  ]
+
+
+{--
 view :: State -> Html Action
-view state =
-  div
+view state = div
     []
-    [ button [ onClick (const IncrementA) ] [ text "IncrementA" ]
-    , span [] [ text (show (toNumber state.a)) ]
-    ,  span [] [ text (show (toNumber state.b)) ]
-    , button [ onClick (const IncrementB) ] [ text "IncrementB" ]
+     [
+      input [  type_ "text", value state.dir,
+               onChange (const UpdateFiles)
+               ] [],
+      div [] (map (\file -> (div [][text file])) state.names)
     ]
+--}
 
 main :: forall e. Eff (err :: EXCEPTION, channel :: CHANNEL | e) Unit
 main = do
-  let init = { a : 0 , b :  0 }
+  let init = { dir : "/home/markus" , names :  [] }
   app <- start
     { initialState: init
     , update: fromSimple update
