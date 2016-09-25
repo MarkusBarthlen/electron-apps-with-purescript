@@ -74,7 +74,8 @@ renderFiles perform props state _ =
 
 performFilesAction :: forall e. T.PerformAction (fs :: FS| e) State _ FilesAction
 performFilesAction (Update dir)           a b = void do
-  T.cotransform \(Tuple x y) -> (Tuple x y)
+  filenames <- lift ( liftEff (either (const []) id <$> try (readdir dir)))
+  T.cotransform \(Tuple x y) -> (Tuple x filenames)
 --   filenames <- lift ( liftEff (either (const []) id <$> try (readdir dir)))
 --   void $ T.cotransform _ (Tuple dir filenames)
 
