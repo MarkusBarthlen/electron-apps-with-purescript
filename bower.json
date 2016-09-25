@@ -17,8 +17,9 @@
     "tests"
   ],
   "dependencies": {
-    "purescript-console": "^1.0.0",
-    "purescript-thermite": "^1.0.0",
-    "purescript-node-fs": "^1.0.0"
+    "purescript-node-fs": "^1.0.0",
+    "purescript-pux": "^5.0.1",
+    "purescript-pux-devtool": "^3.0.0"
+
   }
 }
