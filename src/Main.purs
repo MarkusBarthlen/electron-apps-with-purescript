@@ -19,7 +19,8 @@ import DOM.HTML.HTMLInputElement (files)
 import DOM.HTML.Types (htmlDocumentToParentNode) as DOM
 import DOM.HTML.Window (document) as DOM
 import DOM.Node.ParentNode (querySelector) as DOM
-import Data.Either (either, Either)
+--import Data.Either (either, Either)
+import Data.Either
 import Data.Maybe (fromJust)
 import Data.Nullable (toMaybe)
 import Node.FS (FS)
@@ -35,25 +36,28 @@ type InputState = String
 
 data InputAction = SetEditText String
 
-renderInput :: T.Render InputState _ InputAction
+renderInput :: T.Render InputState _ Action
 renderInput perform props state _ =
   let handleKeyPress :: Int -> String -> _
-      handleKeyPress 27 _    = perform $ SetEditText ""
+      handleKeyPress 13 text = perform $ pure $ Update text
+--      handleKeyPress 27 _    = perform $ (Left SetEditText "")
       handleKeyPress _  _    = pure unit
   in
     [
       input [RP.placeholder "directory",
                RP.value state,
-               RP.onChange \e -> perform (SetEditText (unsafeCoerce e).target.value),
+               RP.onChange \e -> perform (Left (SetEditText (unsafeCoerce e).target.value)),
                RP.onKeyUp \e -> handleKeyPress (unsafeCoerce e).keyCode (unsafeCoerce e).target.value
                ] []
     ]
 
-performInputAction :: forall e. T.PerformAction _ InputState _ InputAction
-performInputAction (SetEditText s)           _ _ = void do
+performInputAction :: forall e. T.PerformAction _ InputState _ Action
+performInputAction (Left (SetEditText s))           _ _ = void do
   T.cotransform \state -> s
+performInputAction _                     _ _ = pure unit
 
-inputSpec :: T.Spec _ InputState _ InputAction
+
+inputSpec :: T.Spec _ InputState _ Action
 inputSpec = T.simpleSpec performInputAction renderInput
 
 type FilesState = Array String
@@ -86,7 +90,7 @@ filesSpec = T.simpleSpec performFilesAction renderFiles
 
 
 komponent :: T.Spec _ State _ Action
-komponent = T.focus _1 _Left inputSpec <> T.focus id _Right filesSpec
+komponent = T.focus _1 id inputSpec <> T.focus id _Right filesSpec
 
 main :: Eff (fs :: FS, dom :: DOM) Unit
 main = void do
