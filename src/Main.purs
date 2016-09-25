@@ -19,52 +19,73 @@ import DOM.HTML.HTMLInputElement (files)
 import DOM.HTML.Types (htmlDocumentToParentNode) as DOM
 import DOM.HTML.Window (document) as DOM
 import DOM.Node.ParentNode (querySelector) as DOM
-import Data.Either (either)
+import Data.Either (either, Either)
 import Data.Maybe (fromJust)
 import Data.Nullable (toMaybe)
 import Node.FS (FS)
 import Node.FS.Sync (readdir)
 import Partial.Unsafe (unsafePartial)
-import React.DOM (text, li', ul', input)
+import React.DOM (text, li', ul', input, button)
 import Unsafe.Coerce (unsafeCoerce)
+import Data.Tuple
+import Data.Lens
 
-type State = {dir :: String, names :: Array String}
 
-data Action
-  = SetEditText String |
-  UpdateFiles String | Update
+type InputState = String
 
-render :: T.Render State _ Action
-render perform props state _ =
+data InputAction = SetEditText String
+
+type State = Tuple InputState FilesState
+
+renderInput :: T.Render InputState _ InputAction
+renderInput perform props state _ =
   let handleKeyPress :: Int -> String -> _
-      handleKeyPress 13 text = perform $ UpdateFiles text
       handleKeyPress 27 _    = perform $ SetEditText ""
       handleKeyPress _  _    = pure unit
   in
     [
       input [RP.placeholder "directory",
-               RP.value state.dir,
+               RP.value state,
                RP.onChange \e -> perform (SetEditText (unsafeCoerce e).target.value),
                RP.onKeyUp \e -> handleKeyPress (unsafeCoerce e).keyCode (unsafeCoerce e).target.value
+               ] []
+    ]
+
+performInputAction :: forall e. T.PerformAction _ InputState _ InputAction
+performInputAction (SetEditText s)           _ _ = void do
+  T.cotransform \state -> s
+
+inputSpec :: T.Spec _ InputState _ InputAction
+inputSpec = T.simpleSpec performInputAction renderInput
+
+type FilesState = Array String
+
+data FilesAction = Update
+
+renderFiles :: T.Render FilesState _ FilesAction
+renderFiles perform props state _ =
+      [
+      button [RP.onClick \_ -> perform Update
                ] [],
       ul' (map (\file -> li' [text file]) props.names)
     ]
 
-
-performAction :: forall e. T.PerformAction (fs :: FS, console :: CONSOLE | e) State _ Action
-performAction (SetEditText s)           _ _ = void do
-  T.cotransform $ _ { dir = s }
-performAction (Update)                  _ _ = void do
-  T.cotransform $ _ { dir = "" }
-performAction (UpdateFiles s)           _ _ = do
-   filenames <- lift ( liftEff (either (const []) id <$> try (readdir s)))
+performFilesAction :: forall e. T.PerformAction (fs :: FS, console :: CONSOLE | e) FilesState _ FilesAction
+performFilesAction (Update)           _ s = do
+   filenames <- lift ( liftEff (either (const []) id <$> try (readdir s.dir)))
    lift (liftEff $ log s)
    lift (liftEff $ log (show filenames))
    void $ T.cotransform $ _ { names = filenames }
 
+filesSpec :: T.Spec _ FilesState _ FilesAction
+filesSpec = T.simpleSpec performInputAction renderInput
+
+
+
+type Action = Either InputAction FilesAction
 
 dirListingComponent :: T.Spec _ State _ Action
-dirListingComponent = T.simpleSpec performAction render
+dirListingComponent = T.focus _1 _Left inputSpec <> T.focus _2 _Right filesSpec
 
 main :: Eff (fs :: FS, dom :: DOM) Unit
 main = void do
@@ -76,7 +97,7 @@ main = void do
   container <-
     unsafePartial
     (fromJust <<< toMaybe
-    <$> DOM.querySelector "body"
+    <$> DOM.querySelector "#container"
     (DOM.htmlDocumentToParentNode document))
   RDOM.render
     (R.createFactory component (state))
